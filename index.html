@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bangkok Trendy Eats</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #fafafa; color: #333; }
+  header { background: linear-gradient(135deg, #e84393, #fd79a8); color: #fff; padding: 2rem 1rem; text-align: center; }
+  header h1 { font-size: 1.8rem; margin-bottom: 0.3rem; }
+  header p { opacity: 0.9; font-size: 0.95rem; }
+  .filters { display: flex; gap: 0.5rem; padding: 1rem; overflow-x: auto; justify-content: center; flex-wrap: wrap; }
+  .filters button { padding: 0.4rem 1rem; border: 1px solid #ddd; background: #fff; border-radius: 20px; cursor: pointer; font-size: 0.85rem; white-space: nowrap; transition: all 0.2s; }
+  .filters button.active, .filters button:hover { background: #e84393; color: #fff; border-color: #e84393; }
+  .search { padding: 0 1rem; max-width: 500px; margin: 0 auto; }
+  .search input { width: 100%; padding: 0.6rem 1rem; border: 1px solid #ddd; border-radius: 8px; font-size: 0.95rem; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1rem; padding: 1rem; max-width: 1000px; margin: 0 auto; }
+  .card { background: #fff; border-radius: 10px; padding: 1.2rem; box-shadow: 0 1px 4px rgba(0,0,0,0.08); transition: transform 0.2s; }
+  .card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.12); }
+  .card h3 { font-size: 1.1rem; margin-bottom: 0.3rem; }
+  .card .tag { display: inline-block; font-size: 0.7rem; background: #ffeef5; color: #e84393; padding: 0.15rem 0.5rem; border-radius: 10px; margin-bottom: 0.5rem; }
+  .card .stars { color: #e84393; font-size: 0.85rem; margin-bottom: 0.4rem; }
+  .card p { font-size: 0.85rem; color: #666; line-height: 1.5; }
+  .card .meta { font-size: 0.75rem; color: #999; margin-top: 0.5rem; }
+  .empty { text-align: center; padding: 3rem 1rem; color: #999; }
+  footer { text-align: center; padding: 2rem 1rem; color: #aaa; font-size: 0.8rem; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Bangkok Trendy Eats</h1>
+  <p>Curated guide to the hottest restaurants in Bangkok</p>
+</header>
+
+<div class="search">
+  <input type="text" id="search" placeholder="Search restaurants...">
+</div>
+
+<div class="filters" id="filters"></div>
+<div class="grid" id="grid"></div>
+<div class="empty" id="empty" style="display:none">No restaurants found.</div>
+
+<footer>Bangkok Trendy Eats &mdash; 2026</footer>
+
+<script>
+const restaurants = [
+  { name: "Sorn", category: "Fine Dining", stars: 5, area: "Sukhumvit", desc: "3 Michelin-starred southern Thai cuisine. One of Bangkok's most acclaimed dining experiences." },
+  { name: "Potong", category: "Fine Dining", stars: 5, area: "Yaowarat", desc: "Thai-Chinese fine dining in a century-old Sino-Portuguese building by Asia's Best Female Chef." },
+  { name: "Gaa", category: "Fine Dining", stars: 5, area: "Sukhumvit", desc: "Chef Garima Arora's modern Thai tasting menus blending Indian and Thai culinary traditions." },
+  { name: "C\u00f4te by Mauro Colagreco", category: "Fine Dining", stars: 5, area: "Riverside", desc: "Mediterranean flavors meet the Chao Phraya River by a 3-Michelin-star French chef." },
+  { name: "Patt Bangkok", category: "Fine Dining", stars: 5, area: "Silom", desc: "2025 Best New Restaurant. French techniques fused with Thai soul by Chef Big." },
+  { name: "Canton Disco", category: "New & Hot", stars: 4, area: "Chinatown", desc: "Cantonese dishes with a modern twist in a neon-lit, Wong Kar Wai-inspired space." },
+  { name: "Kwantip", category: "New & Hot", stars: 4, area: "Thonglor", desc: "Auntie Pom's passion project showcasing traditional Samrub-style Thai dining." },
+  { name: "Lawoi", category: "New & Hot", stars: 4, area: "Sukhumvit", desc: "Chef Ton's seafood concept with daily-changing menus from southern Thai fishermen." },
+  { name: "Namsu", category: "New & Hot", stars: 4, area: "Ari", desc: "Shan State cuisine with fermented mountain flavors and makhwaen pepper." },
+  { name: "Charmgang", category: "Modern Thai", stars: 4, area: "Charoenkrung", desc: "Buzzy, dimly lit spot drawing a stylish crowd for cocktails and creative Thai fare." },
+  { name: "100 Mahaseth", category: "Modern Thai", stars: 4, area: "Mahaseth", desc: "Isaan soul meets fearless nose-to-tail cooking by Chef Chalee Kader." },
+  { name: "Haoma", category: "Modern Thai", stars: 4, area: "Sukhumvit", desc: "Neo-Indian cuisine in a lush urban farm setting. A green escape in the city." },
+  { name: "Sirocco", category: "Rooftop", stars: 5, area: "Silom", desc: "63rd-floor fine dining with 360-degree views next to the iconic Sky Bar." },
+  { name: "Y\u00e0o Restaurant", category: "Rooftop", stars: 4, area: "Surawongse", desc: "Sky-high Cantonese and Shanghainese cuisine atop the Bangkok Marriott." },
+  { name: "Chu Chu", category: "Casual", stars: 3, area: "Ari", desc: "Trendy Taiwanese fried chicken spot blending spicy flavor with American culture." },
+  { name: "Kizuki", category: "Casual", stars: 3, area: "Thonglor", desc: "Chinese-influenced tearoom reimagining the traditional tea-drinking experience." }
+];
+
+const categories = ["All", ...new Set(restaurants.map(r => r.category))];
+const filtersEl = document.getElementById("filters");
+const gridEl = document.getElementById("grid");
+const emptyEl = document.getElementById("empty");
+const searchEl = document.getElementById("search");
+let activeCategory = "All";
+
+function renderFilters() {
+  filtersEl.innerHTML = categories.map(c =>
+    `<button class="${c === activeCategory ? 'active' : ''}" data-cat="${c}">${c}</button>`
+  ).join("");
+}
+
+function renderCards() {
+  const q = searchEl.value.toLowerCase();
+  const filtered = restaurants.filter(r => {
+    const matchCat = activeCategory === "All" || r.category === activeCategory;
+    const matchSearch = r.name.toLowerCase().includes(q) || r.desc.toLowerCase().includes(q) || r.area.toLowerCase().includes(q);
+    return matchCat && matchSearch;
+  });
+  if (filtered.length === 0) {
+    gridEl.innerHTML = "";
+    emptyEl.style.display = "block";
+    return;
+  }
+  emptyEl.style.display = "none";
+  gridEl.innerHTML = filtered.map(r => `
+    <div class="card">
+      <span class="tag">${r.category}</span>
+      <h3>${r.name}</h3>
+      <div class="stars">${"\u2605".repeat(r.stars)}${"\u2606".repeat(5 - r.stars)}</div>
+      <p>${r.desc}</p>
+      <div class="meta">${r.area}</div>
+    </div>
+  `).join("");
+}
+
+filtersEl.addEventListener("click", e => {
+  if (e.target.dataset.cat) {
+    activeCategory = e.target.dataset.cat;
+    renderFilters();
+    renderCards();
+  }
+});
+searchEl.addEventListener("input", renderCards);
+
+renderFilters();
+renderCards();
+</script>
+</body>
+</html>
