@@ -4,114 +4,535 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Bangkok Trendy Eats</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #fafafa; color: #333; }
   header { background: linear-gradient(135deg, #e84393, #fd79a8); color: #fff; padding: 2rem 1rem; text-align: center; }
   header h1 { font-size: 1.8rem; margin-bottom: 0.3rem; }
   header p { opacity: 0.9; font-size: 0.95rem; }
-  .filters { display: flex; gap: 0.5rem; padding: 1rem; overflow-x: auto; justify-content: center; flex-wrap: wrap; }
-  .filters button { padding: 0.4rem 1rem; border: 1px solid #ddd; background: #fff; border-radius: 20px; cursor: pointer; font-size: 0.85rem; white-space: nowrap; transition: all 0.2s; }
-  .filters button.active, .filters button:hover { background: #e84393; color: #fff; border-color: #e84393; }
-  .search { padding: 0 1rem; max-width: 500px; margin: 0 auto; }
-  .search input { width: 100%; padding: 0.6rem 1rem; border: 1px solid #ddd; border-radius: 8px; font-size: 0.95rem; }
-  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1rem; padding: 1rem; max-width: 1000px; margin: 0 auto; }
-  .card { background: #fff; border-radius: 10px; padding: 1.2rem; box-shadow: 0 1px 4px rgba(0,0,0,0.08); transition: transform 0.2s; }
+
+  #map { height: 400px; width: 100%; z-index: 0; }
+
+  .controls { max-width: 1000px; margin: 0 auto; padding: 1rem; }
+  .search { margin-bottom: 0.75rem; }
+  .search input { width: 100%; padding: 0.6rem 1rem; border: 1px solid #ddd; border-radius: 8px; font-size: 0.95rem; outline: none; }
+  .search input:focus { border-color: #e84393; box-shadow: 0 0 0 2px rgba(232,67,147,0.15); }
+
+  .filter-group { margin-bottom: 0.5rem; }
+  .filter-group label { font-size: 0.8rem; font-weight: 600; color: #666; margin-right: 0.5rem; }
+  .pills { display: inline-flex; gap: 0.4rem; flex-wrap: wrap; }
+  .pills button { padding: 0.3rem 0.8rem; border: 1px solid #ddd; background: #fff; border-radius: 20px; cursor: pointer; font-size: 0.8rem; white-space: nowrap; transition: all 0.2s; }
+  .pills button.active, .pills button:hover { background: #e84393; color: #fff; border-color: #e84393; }
+
+  .results-count { max-width: 1000px; margin: 0 auto; padding: 0 1rem 0.5rem; font-size: 0.85rem; color: #999; }
+
+  .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; padding: 0 1rem 1rem; max-width: 1000px; margin: 0 auto; }
+
+  .card { background: #fff; border-radius: 10px; padding: 1.2rem; box-shadow: 0 1px 4px rgba(0,0,0,0.08); transition: transform 0.2s; cursor: pointer; }
   .card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.12); }
-  .card h3 { font-size: 1.1rem; margin-bottom: 0.3rem; }
-  .card .tag { display: inline-block; font-size: 0.7rem; background: #ffeef5; color: #e84393; padding: 0.15rem 0.5rem; border-radius: 10px; margin-bottom: 0.5rem; }
-  .card .stars { color: #e84393; font-size: 0.85rem; margin-bottom: 0.4rem; }
-  .card p { font-size: 0.85rem; color: #666; line-height: 1.5; }
-  .card .meta { font-size: 0.75rem; color: #999; margin-top: 0.5rem; }
+  .card .tag-row { display: flex; gap: 0.4rem; align-items: center; margin-bottom: 0.4rem; flex-wrap: wrap; }
+  .card .tag { font-size: 0.7rem; background: #ffeef5; color: #e84393; padding: 0.15rem 0.5rem; border-radius: 10px; }
+  .card .price { font-size: 0.7rem; color: #999; }
+  .card h3 { font-size: 1.1rem; margin-bottom: 0.2rem; }
+  .card .rating { font-size: 0.85rem; color: #e84393; margin-bottom: 0.3rem; }
+  .card .rating .count { font-size: 0.75rem; color: #999; margin-left: 0.3rem; }
+  .card .area { font-size: 0.8rem; color: #888; margin-bottom: 0.4rem; }
+  .card .desc { font-size: 0.83rem; color: #666; line-height: 1.5; margin-bottom: 0.6rem; }
+
+  .dishes { display: flex; gap: 0.6rem; overflow-x: auto; padding-bottom: 0.4rem; margin-bottom: 0.6rem; }
+  .dishes::-webkit-scrollbar { height: 4px; }
+  .dishes::-webkit-scrollbar-thumb { background: #ddd; border-radius: 2px; }
+  .dish { min-width: 140px; background: #fdf5f8; border-radius: 8px; padding: 0.5rem 0.6rem; flex-shrink: 0; }
+  .dish .emoji { font-size: 1.2rem; }
+  .dish .dish-name { font-size: 0.78rem; font-weight: 600; margin: 0.15rem 0; }
+  .dish .dish-desc { font-size: 0.7rem; color: #888; line-height: 1.3; }
+
+  .reviews { margin-bottom: 0.6rem; }
+  .review { font-size: 0.78rem; color: #777; font-style: italic; line-height: 1.4; margin-bottom: 0.3rem; }
+  .review .author { font-style: normal; font-weight: 600; color: #999; font-size: 0.72rem; }
+
+  .reserve-btn { display: inline-block; padding: 0.4rem 1rem; background: #e84393; color: #fff; border: none; border-radius: 6px; font-size: 0.82rem; cursor: pointer; text-decoration: none; transition: background 0.2s; }
+  .reserve-btn:hover { background: #d63384; }
+
   .empty { text-align: center; padding: 3rem 1rem; color: #999; }
   footer { text-align: center; padding: 2rem 1rem; color: #aaa; font-size: 0.8rem; }
+
+  @media (max-width: 700px) {
+    #map { height: 250px; }
+    .grid { grid-template-columns: 1fr; }
+  }
 </style>
 </head>
 <body>
 
 <header>
   <h1>Bangkok Trendy Eats</h1>
-  <p>Curated guide to the hottest restaurants in Bangkok</p>
+  <p>Curated guide to the best Thai restaurants in Bangkok</p>
 </header>
 
-<div class="search">
-  <input type="text" id="search" placeholder="Search restaurants...">
+<div id="map"></div>
+
+<div class="controls">
+  <div class="search">
+    <input type="text" id="search" placeholder="Search by name, area, dish, or keyword...">
+  </div>
+  <div class="filter-group">
+    <label>Reviews:</label>
+    <div class="pills" id="review-filters">
+      <button class="active" data-filter="all">All</button>
+      <button data-filter="under1k">Under 1K</button>
+      <button data-filter="1k3k">1K–3K</button>
+      <button data-filter="3k5k">3K–5K</button>
+      <button data-filter="5k">5K+</button>
+    </div>
+  </div>
+  <div class="filter-group">
+    <label>Rating:</label>
+    <div class="pills" id="rating-filters">
+      <button class="active" data-filter="all">All</button>
+      <button data-filter="4.5">4.5+</button>
+      <button data-filter="4.0">4.0–4.5</button>
+      <button data-filter="under4">Under 4.0</button>
+    </div>
+  </div>
 </div>
 
-<div class="filters" id="filters"></div>
+<div class="results-count" id="results-count"></div>
 <div class="grid" id="grid"></div>
 <div class="empty" id="empty" style="display:none">No restaurants found.</div>
 
 <footer>Bangkok Trendy Eats &mdash; 2026</footer>
 
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
 const restaurants = [
-  { name: "Sorn", category: "Fine Dining", stars: 5, area: "Sukhumvit", desc: "3 Michelin-starred southern Thai cuisine. One of Bangkok's most acclaimed dining experiences." },
-  { name: "Potong", category: "Fine Dining", stars: 5, area: "Yaowarat", desc: "Thai-Chinese fine dining in a century-old Sino-Portuguese building by Asia's Best Female Chef." },
-  { name: "Gaa", category: "Fine Dining", stars: 5, area: "Sukhumvit", desc: "Chef Garima Arora's modern Thai tasting menus blending Indian and Thai culinary traditions." },
-  { name: "C\u00f4te by Mauro Colagreco", category: "Fine Dining", stars: 5, area: "Riverside", desc: "Mediterranean flavors meet the Chao Phraya River by a 3-Michelin-star French chef." },
-  { name: "Patt Bangkok", category: "Fine Dining", stars: 5, area: "Silom", desc: "2025 Best New Restaurant. French techniques fused with Thai soul by Chef Big." },
-  { name: "Canton Disco", category: "New & Hot", stars: 4, area: "Chinatown", desc: "Cantonese dishes with a modern twist in a neon-lit, Wong Kar Wai-inspired space." },
-  { name: "Kwantip", category: "New & Hot", stars: 4, area: "Thonglor", desc: "Auntie Pom's passion project showcasing traditional Samrub-style Thai dining." },
-  { name: "Lawoi", category: "New & Hot", stars: 4, area: "Sukhumvit", desc: "Chef Ton's seafood concept with daily-changing menus from southern Thai fishermen." },
-  { name: "Namsu", category: "New & Hot", stars: 4, area: "Ari", desc: "Shan State cuisine with fermented mountain flavors and makhwaen pepper." },
-  { name: "Charmgang", category: "Modern Thai", stars: 4, area: "Charoenkrung", desc: "Buzzy, dimly lit spot drawing a stylish crowd for cocktails and creative Thai fare." },
-  { name: "100 Mahaseth", category: "Modern Thai", stars: 4, area: "Mahaseth", desc: "Isaan soul meets fearless nose-to-tail cooking by Chef Chalee Kader." },
-  { name: "Haoma", category: "Modern Thai", stars: 4, area: "Sukhumvit", desc: "Neo-Indian cuisine in a lush urban farm setting. A green escape in the city." },
-  { name: "Sirocco", category: "Rooftop", stars: 5, area: "Silom", desc: "63rd-floor fine dining with 360-degree views next to the iconic Sky Bar." },
-  { name: "Y\u00e0o Restaurant", category: "Rooftop", stars: 4, area: "Surawongse", desc: "Sky-high Cantonese and Shanghainese cuisine atop the Bangkok Marriott." },
-  { name: "Chu Chu", category: "Casual", stars: 3, area: "Ari", desc: "Trendy Taiwanese fried chicken spot blending spicy flavor with American culture." },
-  { name: "Kizuki", category: "Casual", stars: 3, area: "Thonglor", desc: "Chinese-influenced tearoom reimagining the traditional tea-drinking experience." }
+  {
+    name: "Hemlock",
+    cuisine: "Home-Style Thai",
+    rating: 4.2,
+    reviews: 1850,
+    area: "Phra Nakhon",
+    proximity: "3-min walk from Khaosan Road",
+    lat: 13.7590,
+    lng: 100.4980,
+    desc: "Cozy two-storey shophouse beloved by locals and backpackers for authentic home-style Thai dishes at wallet-friendly prices.",
+    price: "$$",
+    dishes: [
+      { emoji: "\ud83c\udf5b", name: "Massaman Curry", desc: "Slow-braised beef in rich peanut curry" },
+      { emoji: "\ud83e\udd57", name: "Wing Bean Salad", desc: "Crunchy wing beans with coconut dressing" },
+      { emoji: "\ud83c\udf5c", name: "Tom Kha Gai", desc: "Coconut galangal chicken soup" }
+    ],
+    reviewQuotes: [
+      { text: "Best home-cooked Thai food near Khaosan. The wing bean salad is perfection.", author: "Sarah L.", stars: 5 },
+      { text: "Affordable, authentic, and the ambiance is wonderfully local.", author: "Tom K.", stars: 4 }
+    ],
+    link: "https://www.google.com/maps/search/Hemlock+Restaurant+Bangkok"
+  },
+  {
+    name: "I Love Thai Food",
+    cuisine: "Street Thai",
+    rating: 4.0,
+    reviews: 620,
+    area: "Khaosan Road",
+    proximity: "On Khaosan Road",
+    lat: 13.7589,
+    lng: 100.4970,
+    desc: "Lively open-air eatery right on Khaosan Road serving up bold curries, stir-fries, and street snacks until late.",
+    price: "$",
+    dishes: [
+      { emoji: "\ud83c\udf36\ufe0f", name: "Pad Kra Pao", desc: "Holy basil stir-fry with crispy fried egg" },
+      { emoji: "\ud83c\udf64", name: "Tom Yum Goong", desc: "Spicy-sour shrimp soup with lemongrass" }
+    ],
+    reviewQuotes: [
+      { text: "Great spot for a quick Thai meal between Khaosan adventures.", author: "Mike D.", stars: 4 }
+    ],
+    link: "https://www.google.com/maps/search/I+Love+Thai+Food+Khaosan+Bangkok"
+  },
+  {
+    name: "Krua Apsorn",
+    cuisine: "Royal Thai",
+    rating: 4.4,
+    reviews: 3200,
+    area: "Samran Rat",
+    proximity: "10-min walk from Khaosan Road",
+    lat: 13.7560,
+    lng: 100.5020,
+    desc: "Legendary lunch spot favored by Thai royalty, famous for its crab omelette and rich curries served since 1957.",
+    price: "$$",
+    dishes: [
+      { emoji: "\ud83e\udd80", name: "Crab Omelette", desc: "Fluffy omelette loaded with sweet crab meat" },
+      { emoji: "\ud83c\udf5b", name: "Crab Curry", desc: "Yellow curry with premium crab and betel leaves" },
+      { emoji: "\ud83e\udd5a", name: "Stir-Fried Crab", desc: "Wok-tossed crab with curry powder" }
+    ],
+    reviewQuotes: [
+      { text: "The crab omelette is legendary for a reason. Worth every baht.", author: "Nadia P.", stars: 5 },
+      { text: "Been coming here for 10 years, quality never drops.", author: "Somchai R.", stars: 5 }
+    ],
+    link: "https://www.google.com/maps/search/Krua+Apsorn+Bangkok"
+  },
+  {
+    name: "Jay Fai",
+    cuisine: "Street Thai (Michelin)",
+    rating: 4.3,
+    reviews: 8900,
+    area: "Mahachai Road",
+    proximity: "12-min walk from Khaosan Road",
+    lat: 13.7535,
+    lng: 100.5050,
+    desc: "The world's most famous street food chef. Auntie Fai's legendary crab omelette earned a Michelin star\u2014the only street food stall in Thailand.",
+    price: "$$$$",
+    dishes: [
+      { emoji: "\ud83e\udd80", name: "Crab Omelette", desc: "Massive crispy omelette overflowing with crab" },
+      { emoji: "\ud83c\udf5d", name: "Drunken Noodles", desc: "Fiery wide noodles with seafood" },
+      { emoji: "\ud83e\udd90", name: "Tom Yum Soup", desc: "Rich creamy tom yum with jumbo prawns" }
+    ],
+    reviewQuotes: [
+      { text: "2 hour wait but the crab omelette is worth every minute.", author: "Alex W.", stars: 5 },
+      { text: "A bucket-list experience. The goggles, the wok, the fire\u2014pure theater.", author: "Yuki T.", stars: 4 }
+    ],
+    link: "https://www.google.com/maps/search/Jay+Fai+Bangkok"
+  },
+  {
+    name: "Thip Samai",
+    cuisine: "Pad Thai Specialist",
+    rating: 4.3,
+    reviews: 7500,
+    area: "Mahachai Road",
+    proximity: "10-min walk from Khaosan Road",
+    lat: 13.7538,
+    lng: 100.5045,
+    desc: "Bangkok's undisputed Pad Thai king since 1966. The egg-wrapped 'Superb' version with prawns draws nightly queues around the block.",
+    price: "$",
+    dishes: [
+      { emoji: "\ud83c\udf5c", name: "Superb Pad Thai", desc: "Egg-wrapped pad thai with jumbo prawns" },
+      { emoji: "\ud83e\udd64", name: "Fresh OJ", desc: "Freshly squeezed orange juice, the perfect pairing" },
+      { emoji: "\ud83c\udf73", name: "Regular Pad Thai", desc: "Classic style with tofu and dried shrimp" }
+    ],
+    reviewQuotes: [
+      { text: "The 'Superb' pad thai wrapped in egg is the best I've ever had.", author: "Chen Y.", stars: 5 },
+      { text: "Come early\u2014the line gets insane after 7pm.", author: "Bella R.", stars: 4 }
+    ],
+    link: "https://www.google.com/maps/search/Thip+Samai+Pad+Thai+Bangkok"
+  },
+  {
+    name: "Methavalai Sorndaeng",
+    cuisine: "Royal Thai",
+    rating: 4.1,
+    reviews: 2100,
+    area: "Ratchadamnoen",
+    proximity: "8-min walk from Khaosan Road",
+    lat: 13.7565,
+    lng: 100.5030,
+    desc: "Grand vintage restaurant serving royal Thai recipes since 1957, set in a stately dining hall near the Democracy Monument.",
+    price: "$$$",
+    dishes: [
+      { emoji: "\ud83c\udf5b", name: "Massaman Lamb", desc: "Royal-recipe massaman with tender lamb shank" },
+      { emoji: "\ud83c\udf36\ufe0f", name: "Miang Kham", desc: "Betel leaf wraps with roasted coconut and ginger" },
+      { emoji: "\ud83e\udd90", name: "Goong Sarong", desc: "Prawns wrapped in crispy noodles" }
+    ],
+    reviewQuotes: [
+      { text: "Feels like dining in a Thai palace. The massaman is extraordinary.", author: "Rachel F.", stars: 5 },
+      { text: "Old-school elegance with recipes you can't find elsewhere.", author: "James C.", stars: 4 }
+    ],
+    link: "https://www.google.com/maps/search/Methavalai+Sorndaeng+Bangkok"
+  },
+  {
+    name: "Supanniga Eating Room",
+    cuisine: "Eastern Thai",
+    rating: 4.5,
+    reviews: 4800,
+    area: "Tha Tien",
+    proximity: "Near Wat Pho, Old Town riverside",
+    lat: 13.7460,
+    lng: 100.4930,
+    desc: "Elegant riverside eatery showcasing Trat province recipes\u2014eastern Thai flavors rarely found in Bangkok, with stunning Wat Arun views.",
+    price: "$$$",
+    dishes: [
+      { emoji: "\ud83e\udd80", name: "Stir-Fried Crab", desc: "Blue crab with yellow chili and egg" },
+      { emoji: "\ud83d\udc1f", name: "Crispy Sea Bass", desc: "Deep-fried sea bass with green mango salad" },
+      { emoji: "\ud83c\udf5b", name: "Trat Dry Curry", desc: "Fragrant dry curry with local herbs" }
+    ],
+    reviewQuotes: [
+      { text: "The Wat Arun views plus incredible eastern Thai food\u2014magical combo.", author: "Lisa M.", stars: 5 },
+      { text: "Dishes from Trat I've never seen on any other menu. Truly unique.", author: "Pong S.", stars: 5 }
+    ],
+    link: "https://www.google.com/maps/search/Supanniga+Eating+Room+Tha+Tien+Bangkok"
+  },
+  {
+    name: "Nusara",
+    cuisine: "Southern Thai (Fine Dining)",
+    rating: 4.7,
+    reviews: 1400,
+    area: "Charoen Krung",
+    proximity: "Old Town riverside area",
+    lat: 13.7270,
+    lng: 100.5130,
+    desc: "Chef Thitid 'Ton' Tassanakajohn's newest jewel\u2014elevated southern Thai cuisine that earned 2 Michelin stars and topped Asia's 50 Best 2024.",
+    price: "$$$$",
+    dishes: [
+      { emoji: "\ud83e\udd9e", name: "Dry Red Curry", desc: "Intense southern curry with river prawns" },
+      { emoji: "\ud83c\udf5a", name: "Stink Beans Rice", desc: "Fragrant rice with sator beans and pork" },
+      { emoji: "\ud83c\udf3f", name: "Betel Leaf Wrap", desc: "Crispy parcels with turmeric and herbs" }
+    ],
+    reviewQuotes: [
+      { text: "The best meal I've had in Asia. Southern Thai flavors at their peak.", author: "David H.", stars: 5 },
+      { text: "Each course tells a story of the south. Mind-blowing tasting menu.", author: "Mei L.", stars: 5 }
+    ],
+    link: "https://www.google.com/maps/search/Nusara+Bangkok"
+  },
+  {
+    name: "Somtum Der",
+    cuisine: "Isaan Thai",
+    rating: 4.4,
+    reviews: 5200,
+    area: "Silom / Sala Daeng",
+    proximity: "Silom business district",
+    lat: 13.7280,
+    lng: 100.5340,
+    desc: "Michelin Bib Gourmand Isaan specialist that brought northeastern Thai street food to the fine-casual world stage, with a NYC outpost.",
+    price: "$$",
+    dishes: [
+      { emoji: "\ud83e\udd57", name: "Som Tum", desc: "Green papaya salad pounded to order" },
+      { emoji: "\ud83c\udf57", name: "Crying Tiger", desc: "Grilled beef with roasted chili dip" },
+      { emoji: "\ud83c\udf5b", name: "Larb Moo", desc: "Spicy minced pork salad with herbs" }
+    ],
+    reviewQuotes: [
+      { text: "The best som tum in Bangkok, hands down. Spice levels are real!", author: "Jenny B.", stars: 5 },
+      { text: "Authentic Isaan at its finest. The crying tiger is incredible.", author: "Prasit K.", stars: 4 }
+    ],
+    link: "https://www.google.com/maps/search/Somtum+Der+Silom+Bangkok"
+  },
+  {
+    name: "Baan Phadthai",
+    cuisine: "Pad Thai Specialist",
+    rating: 4.2,
+    reviews: 3100,
+    area: "Charoen Krung / Bang Rak",
+    proximity: "Bang Rak creative district",
+    lat: 13.7250,
+    lng: 100.5160,
+    desc: "Upscale pad thai house in a charming heritage building, offering creative variations from truffle to river prawn pad thai.",
+    price: "$$",
+    dishes: [
+      { emoji: "\ud83c\udf5c", name: "River Prawn Pad Thai", desc: "Premium pad thai with giant river prawns" },
+      { emoji: "\ud83c\udf44", name: "Truffle Pad Thai", desc: "Aromatic truffle oil-infused pad thai" },
+      { emoji: "\ud83c\udf3f", name: "Vegetarian Pad Thai", desc: "Plant-based version with organic tofu" }
+    ],
+    reviewQuotes: [
+      { text: "Pad thai elevated to an art form. The river prawn version is unforgettable.", author: "Anna G.", stars: 5 },
+      { text: "Beautiful heritage setting and the truffle pad thai is surprisingly good.", author: "Kevin S.", stars: 4 }
+    ],
+    link: "https://www.google.com/maps/search/Baan+Phadthai+Bangkok"
+  },
+  {
+    name: "Err Urban Rustic Thai",
+    cuisine: "Rustic Thai",
+    rating: 4.3,
+    reviews: 2900,
+    area: "Tha Tien / Maharaj",
+    proximity: "Walkable from Grand Palace area",
+    lat: 13.7455,
+    lng: 100.4920,
+    desc: "Playful retro-themed eatery by the team behind Bo.Lan, serving forgotten Thai drinking snacks and rustic recipes in a vintage setting.",
+    price: "$$",
+    dishes: [
+      { emoji: "\ud83d\udc37", name: "Moo Ping", desc: "Charcoal-grilled pork skewers with tamarind dip" },
+      { emoji: "\ud83e\udd91", name: "Dried Squid", desc: "Sweet-spicy grilled squid, classic Thai bar snack" },
+      { emoji: "\ud83e\udd58", name: "Gaeng Som", desc: "Sour curry with vegetables and river fish" }
+    ],
+    reviewQuotes: [
+      { text: "Like eating at a Thai grandma's house if she had impeccable taste.", author: "Pete W.", stars: 5 },
+      { text: "The moo ping skewers are addictive. Vintage vibe is so fun.", author: "Jess N.", stars: 4 }
+    ],
+    link: "https://www.google.com/maps/search/Err+Urban+Rustic+Thai+Bangkok"
+  },
+  {
+    name: "Sorn",
+    cuisine: "Southern Thai (Fine Dining)",
+    rating: 4.8,
+    reviews: 980,
+    area: "Sukhumvit 26",
+    proximity: "Sukhumvit / Thonglor area",
+    lat: 13.7220,
+    lng: 100.5690,
+    desc: "2 Michelin-starred southern Thai fine dining hidden in a residential villa. Ingredients sourced daily from southern Thailand for a 20-course journey.",
+    price: "$$$$",
+    dishes: [
+      { emoji: "\ud83e\udd80", name: "Blue Crab Curry", desc: "Rich Trang-style curry with fresh blue crab" },
+      { emoji: "\ud83d\udc1f", name: "Grilled Pla Kang", desc: "Wild-caught fish with turmeric and herbs" },
+      { emoji: "\ud83c\udf36\ufe0f", name: "Budu Dip Set", desc: "Fermented fish dip with fresh vegetables" }
+    ],
+    reviewQuotes: [
+      { text: "A 20-course love letter to southern Thailand. Absolutely transcendent.", author: "Mark T.", stars: 5 },
+      { text: "Most memorable meal of my life. Every dish has a story.", author: "Ayumi S.", stars: 5 }
+    ],
+    link: "https://www.google.com/maps/search/Sorn+Restaurant+Bangkok"
+  }
 ];
 
-const categories = ["All", ...new Set(restaurants.map(r => r.category))];
-const filtersEl = document.getElementById("filters");
-const gridEl = document.getElementById("grid");
-const emptyEl = document.getElementById("empty");
-const searchEl = document.getElementById("search");
-let activeCategory = "All";
+// Map setup
+const map = L.map('map').setView([13.748, 100.510], 13);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+  maxZoom: 18
+}).addTo(map);
 
-function renderFilters() {
-  filtersEl.innerHTML = categories.map(c =>
-    `<button class="${c === activeCategory ? 'active' : ''}" data-cat="${c}">${c}</button>`
-  ).join("");
+// Khaosan Road reference marker
+const khaosanIcon = L.divIcon({
+  className: '',
+  html: '<div style="background:#e84393;color:#fff;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;white-space:nowrap;box-shadow:0 1px 4px rgba(0,0,0,0.3);">\ud83d\udccd Khaosan Road</div>',
+  iconSize: [120, 24],
+  iconAnchor: [60, 24]
+});
+L.marker([13.7589, 100.4973], { icon: khaosanIcon, interactive: false }).addTo(map);
+
+// Restaurant markers
+const markers = restaurants.map((r, i) => {
+  const icon = L.divIcon({
+    className: '',
+    html: '<div style="background:#3498db;width:12px;height:12px;border-radius:50%;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,0.3);"></div>',
+    iconSize: [12, 12],
+    iconAnchor: [6, 6]
+  });
+  const marker = L.marker([r.lat, r.lng], { icon }).addTo(map);
+  const starStr = '\u2605'.repeat(Math.floor(r.rating)) + (r.rating % 1 >= 0.5 ? '\u00bd' : '');
+  marker.bindPopup(`<strong>${r.name}</strong><br>${r.cuisine}<br><span style="color:#e84393">${starStr}</span> ${r.rating}`);
+  return marker;
+});
+
+// State
+let activeReviewFilter = 'all';
+let activeRatingFilter = 'all';
+
+const searchEl = document.getElementById('search');
+const gridEl = document.getElementById('grid');
+const emptyEl = document.getElementById('empty');
+const countEl = document.getElementById('results-count');
+
+function matchReview(r) {
+  if (activeReviewFilter === 'all') return true;
+  if (activeReviewFilter === 'under1k') return r.reviews < 1000;
+  if (activeReviewFilter === '1k3k') return r.reviews >= 1000 && r.reviews <= 3000;
+  if (activeReviewFilter === '3k5k') return r.reviews > 3000 && r.reviews <= 5000;
+  if (activeReviewFilter === '5k') return r.reviews > 5000;
+  return true;
 }
 
-function renderCards() {
-  const q = searchEl.value.toLowerCase();
-  const filtered = restaurants.filter(r => {
-    const matchCat = activeCategory === "All" || r.category === activeCategory;
-    const matchSearch = r.name.toLowerCase().includes(q) || r.desc.toLowerCase().includes(q) || r.area.toLowerCase().includes(q);
-    return matchCat && matchSearch;
+function matchRating(r) {
+  if (activeRatingFilter === 'all') return true;
+  if (activeRatingFilter === '4.5') return r.rating >= 4.5;
+  if (activeRatingFilter === '4.0') return r.rating >= 4.0 && r.rating < 4.5;
+  if (activeRatingFilter === 'under4') return r.rating < 4.0;
+  return true;
+}
+
+function matchSearch(r, q) {
+  if (!q) return true;
+  const hay = (r.name + ' ' + r.area + ' ' + r.desc + ' ' + r.cuisine + ' ' + r.dishes.map(d => d.name).join(' ')).toLowerCase();
+  return hay.includes(q);
+}
+
+function formatReviews(n) {
+  if (n >= 1000) return (n / 1000).toFixed(1).replace(/\.0$/, '') + 'K';
+  return n.toString();
+}
+
+function renderStars(rating) {
+  const full = Math.floor(rating);
+  const half = rating % 1 >= 0.3;
+  let s = '\u2605'.repeat(full);
+  if (half) s += '\u00bd';
+  return s;
+}
+
+function render() {
+  const q = searchEl.value.toLowerCase().trim();
+  const filtered = [];
+
+  restaurants.forEach((r, i) => {
+    const show = matchReview(r) && matchRating(r) && matchSearch(r, q);
+    if (show) {
+      filtered.push({ r, i });
+      markers[i].addTo(map);
+    } else {
+      map.removeLayer(markers[i]);
+    }
   });
+
+  countEl.textContent = `Showing ${filtered.length} of ${restaurants.length} restaurants`;
+
   if (filtered.length === 0) {
-    gridEl.innerHTML = "";
-    emptyEl.style.display = "block";
+    gridEl.innerHTML = '';
+    emptyEl.style.display = 'block';
     return;
   }
-  emptyEl.style.display = "none";
-  gridEl.innerHTML = filtered.map(r => `
-    <div class="card">
-      <span class="tag">${r.category}</span>
+  emptyEl.style.display = 'none';
+
+  gridEl.innerHTML = filtered.map(({ r, i }) => `
+    <div class="card" data-idx="${i}">
+      <div class="tag-row">
+        <span class="tag">${r.cuisine}</span>
+        <span class="price">${r.price}</span>
+      </div>
       <h3>${r.name}</h3>
-      <div class="stars">${"\u2605".repeat(r.stars)}${"\u2606".repeat(5 - r.stars)}</div>
-      <p>${r.desc}</p>
-      <div class="meta">${r.area}</div>
+      <div class="rating">
+        ${renderStars(r.rating)} ${r.rating}
+        <span class="count">(${formatReviews(r.reviews)} reviews)</span>
+      </div>
+      <div class="area">\ud83d\udccd ${r.area} \u00b7 ${r.proximity}</div>
+      <div class="desc">${r.desc}</div>
+      <div class="dishes">
+        ${r.dishes.map(d => `
+          <div class="dish">
+            <div class="emoji">${d.emoji}</div>
+            <div class="dish-name">${d.name}</div>
+            <div class="dish-desc">${d.desc}</div>
+          </div>
+        `).join('')}
+      </div>
+      <div class="reviews">
+        ${r.reviewQuotes.map(rq => `
+          <div class="review">
+            "${rq.text}" <span class="author">\u2014 ${rq.author} ${'\u2605'.repeat(rq.stars)}</span>
+          </div>
+        `).join('')}
+      </div>
+      <a class="reserve-btn" href="${r.link}" target="_blank" rel="noopener">Reserve a Table</a>
     </div>
-  `).join("");
+  `).join('');
 }
 
-filtersEl.addEventListener("click", e => {
-  if (e.target.dataset.cat) {
-    activeCategory = e.target.dataset.cat;
-    renderFilters();
-    renderCards();
-  }
+// Filter click handlers
+document.getElementById('review-filters').addEventListener('click', e => {
+  if (e.target.tagName !== 'BUTTON') return;
+  document.querySelectorAll('#review-filters button').forEach(b => b.classList.remove('active'));
+  e.target.classList.add('active');
+  activeReviewFilter = e.target.dataset.filter;
+  render();
 });
-searchEl.addEventListener("input", renderCards);
 
-renderFilters();
-renderCards();
+document.getElementById('rating-filters').addEventListener('click', e => {
+  if (e.target.tagName !== 'BUTTON') return;
+  document.querySelectorAll('#rating-filters button').forEach(b => b.classList.remove('active'));
+  e.target.classList.add('active');
+  activeRatingFilter = e.target.dataset.filter;
+  render();
+});
+
+searchEl.addEventListener('input', render);
+
+// Card click -> pan map and open popup
+gridEl.addEventListener('click', e => {
+  const card = e.target.closest('.card');
+  if (!card || e.target.closest('.reserve-btn')) return;
+  const idx = parseInt(card.dataset.idx);
+  const r = restaurants[idx];
+  map.setView([r.lat, r.lng], 15);
+  markers[idx].openPopup();
+});
+
+render();
 </script>
 </body>
 </html>
